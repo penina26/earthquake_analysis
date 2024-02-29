@@ -13,7 +13,7 @@ This project aims to analyze and visualize the impact of earthquakes across the 
 
 **Technology Stack:**
 
-* **Data analysis and manipulation:** R programming language
+* **Data analysis and manipulation:** R programming langu
 * **Interactive visualization:** Shiny web framework
 
 The project will ultimately be presented as a Shiny app, allowing users to explore the data and visualizations in an interactive and user-friendly manner.
