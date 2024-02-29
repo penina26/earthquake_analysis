@@ -1,0 +1,469 @@
+---
+title: "Insights into Earthquake Patterns from 1965 to 2016"
+author: "Penina Wanyama| Sandra Wairimu | Joash Tumbo"
+date: "2024-02-24"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **1.0 Introduction**
+
+The project provides analysis and insights of earthquake impacts across the world. The data is derived from [Kaggle](https://www.kaggle.com/datasets/usgs/earthquake-database?resource=download) displaying records of the date, time, location, type and magnitude of all earthquakes within the years. The result analysis will be based on R and published using Shiny App.
+
+Our main agenda shall be to:
+
+1. Create time series evaluations to enable one have a quick overview of earthquakes. 
+
+2. Spatial Cluster analyze the data to assess country and regional burden 
+
+3. Correlate magnitude of earthquakes to the damages caused 
+4. Assess Continental burden 
+The project attempts to improve the understanding of earthquake dynamics, inform decision-making and contribute to better preparedness strategies worldwide.
+
+
+
+```{r, include=FALSE}
+library(shiny)
+library(leaflet)
+library(ggplot2)
+library(xts)
+library(lubridate)
+library(dplyr)
+library(tidyverse)
+library(ggthemes)
+library(DT)
+library(ggrepel)
+library(plotly)
+```
+### **2.0 Time Series Analysis**
+
+#### **Yearly Earthquake Frequency**
+
+```{r echo=FALSE, fig.width=8, fig.height=6}
+# Load data and handle potential issues
+df <- read.csv("Significant_Earthquakes-1965-2016.csv")
+
+# filter data related to earthquakes
+
+df <- df %>% filter(Type == "Earthquake")
+df$Date <- as.Date(df$Date, format = "%m/%d/%Y")
+df$Year <- year(df$Date)
+df <- df[!is.na(df$Year), ]
+
+# Create magnitude ranges
+df$MagnitudeRange <- cut(df$Magnitude, breaks = seq(5, 10, by = 1), include.lowest = TRUE)
+
+ 
+   #number of eathquakes(yearly)
+
+    suppressWarnings({yearly_counts <- df %>%
+      count(Year)
+    
+    pl <- ggplot(yearly_counts, aes(x = Year, y = n)) +
+      geom_line(color = "#00008B") +
+      scale_x_continuous(breaks = yearly_counts$Year) +
+      ggtitle("Number of Earthquakes by Year") +
+      theme(plot.margin = margin(20, 20, 20, 20),
+            axis.text.x = element_text(angle = 90, hjust = 1),
+            panel.grid.major = element_line(color = "white", size = 0.5),
+            panel.grid.minor = element_line(color = "white", size = 0.25)) +
+      labs(x = "Year", y = "Number of Earthquakes")
+    
+    ggplotly(pl)
+  
+
+})
+```
+
+In recent years(2000-2016), there has been a notable rise in the frequency of earthquakes. This trend may be linked to the increased availability of seismic sensors capable of recording more seismic activity, coupled with advancements in communication technology. Contrary to earlier times when technological limitations posed challenges, the contemporary landscape benefits from improved data collection methods. Despite the growth in earthquake occurrences, the magnitudes have not seen significant increase
+This can be attributed to advancements in technology and heightened preparedness among the public.
+
+#### **Yearly Average Magnitude**
+
+```{r earthquakecount, echo=FALSE, fig.width=8, fig.height=6}
+#magnitude trend
+  
+
+    suppressMessages({ts_data <- xts(df$Magnitude, order.by = df$Date)
+    
+    annual_ts <- suppressWarnings(apply.yearly(ts_data, mean))
+    pl <- ggplot(annual_ts, aes(x = as.POSIXct(Index), y = annual_ts)) +
+      geom_line(color = "#00008B") +
+      scale_x_datetime(date_breaks = "1 year", date_labels = "%Y") +
+      ggtitle("Earthquake Magnitude over Time") +
+      theme(plot.margin = margin(20, 20, 20, 20),
+            axis.text.x = element_text(angle = 90),
+            panel.grid.major = element_line(color = "white", size = 0.5),
+            panel.grid.minor = element_line(color = "white", size = 0.25)) +
+      labs(x = "Year", y = "Magnitude")
+
+    ggplotly(pl)
+
+})
+  
+```
+
+The time series trend of earthquake magnitude showed variability over the years. There were periods of increased seismic activity with higher magnitude and there were also periods of relatively low magnitude i.e 1978.
+
+Overall seismic events follow a pattern with fluctuations in magnitude occurring over the decades.
+
+#### **Annual earthquake occurrence by magnitude**
+
+```{r echo= FALSE, fig.width=10, fig.height=6}
+suppressMessages({
+  
+    # Count by year and magnitude range
+    yearly_magnitude_counts <- df %>%
+      group_by(Year, MagnitudeRange) %>%
+      summarise(Count = n())
+    
+    # Plot stacked bar chart
+    pl <- ggplot(yearly_magnitude_counts, aes(x = Year, y = Count, fill = MagnitudeRange)) +
+      geom_bar(stat = "identity") +
+      labs(title = "Magnitude Range by Year", x = "Year", y = "Number") +
+      scale_fill_viridis_d() 
+    
+    pl
+  
+})
+```
+
+While the number of earthquakes increased over the years with different magnitudes, the number of large magnitude earthquakes (>5.6) has remained relatively constant throughout time. It is observed that extreme magnitude have been declining with extreme occurring last three decades and early 2004 and 2014.
+
+Certain years or periods may exhibit spikes in earthquake activity across multiple magnitude ranges, indicating periods of intense seismic activity.Long-term cycles in earthquake activity may become apparent, highlighting periods of increased or decreased seismicity over longer time scales
+
+### **3.0 Univariate Analysis**
+
+
+
+####  **Distribution of earthquake sizes**
+
+```{r, echo=FALSE, fig.width=8, fig.height=6}
+suppressWarnings({
+  pl <- ggplot(df, aes(x = Magnitude)) +
+      geom_histogram(color="black", aes(fill = after_stat(count)), bins = 40) +
+      ggtitle("Magnitude Distribution Patterns")
+  pl
+})
+```
+
+Looking at the graphic rendered, it is evident that most recorded earthquakes had magnitudes of 6 or lower. However, there are instances of more intense seismic activity, with values exceeding 6.5. This may be attributed to significant earthquakes, including those in Alaska in 1965-1966, the Rat Islands, the Indian Ocean in 2004, and Chile in 2010
+
+#### **Distribution of earthquakes at different depths**
+
+```{r echo=FALSE, fig.width=8, fig.height=6}
+suppressWarnings({
+  pl <- ggplot(df, aes(x = Depth)) +
+      geom_histogram(color="black", aes(fill = after_stat(count)), bins = 40) +
+      ggtitle("Depth Distribution Patterns")
+  pl
+})
+```
+
+Upon analyzing the graph above, it becomes apparent that the data is predominantly concentrated on the left side, indicating an average depth of approximately 70 kilometers. This concentration strongly implies that the majority of documented earthquakes were indeed destructive, characterized by shallower depths. Notable instances supporting this observation include the 1976 Guatemala earthquake (Magnitude 7.5, Depth 15 km), resulting in over 23,000 fatalities, and the 1985 Mexico City earthquake (Magnitude 8.1, Depth 18 km), which claimed 9,500 lives
+
+
+### **4.0 spatial Analysis** 
+
+#### **Continental Burden of Earthquake Magnitudes**
+
+```{r, echo=FALSE}
+#bubble chart
+  
+  suppressWarnings({
+    
+    # Create a world map
+    world_map <- map_data("world")
+    
+    # Map Visualization with Earthquake Locations
+    
+    pl <- ggplot() +
+      geom_polygon(data = world_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+      geom_point(data = df, aes(x = Longitude, y = Latitude, color = Magnitude, size = Magnitude), alpha = 0.5) +
+      scale_color_gradient(low = "blue", high = "red")+
+      labs(title = "Earthquake Magnitude by Location", x = "Longitude", y = "Latitude") +
+      theme_minimal()
+    
+    pl
+    
+  })
+  
+```
+
+#### **Spread of earthquake magnitudes over different regions of the world**
+
+```{r, echo=FALSE}
+  suppressWarnings({
+    pal <- colorNumeric("viridis", domain = df$Magnitude)
+    
+    leaflet(df) %>%
+      addTiles() %>%
+      addCircleMarkers(lng = ~Longitude, lat = ~Latitude,
+                       radius = 3, stroke = FALSE, fillOpacity = 0.5,
+                       color = ~pal(Magnitude),
+                       label = ~paste("Magnitude:", Magnitude)) %>%
+      addControl(paste(title = "Global Earthquake Map"), position = "topright") %>% 
+      leaflet::addLegend(pal = pal, values = df$Magnitude, title = "Magnitude", position = "bottomright") %>%
+      setView(lng = 17, lat = 0, zoom = 1)
+  })
+```
+
+Earthquakes are predominantly concentrated in coastal regions, but it's noteworthy that a substantial number also occur inland, such as in East Africa's Rift Valley and various areas in Asia. This distribution can be attributed to the fact that earthquakes primarily manifest along the boundaries of tectonic plates, massive rock slabs constantly in motion on the Earth's surface.
+
+These seismic activities result from different plate boundary interactions:
+
+Convergent margins (subduction zones): Occur when one plate descends beneath another, often leading to large and deep earthquakes. Such zones extend beyond coasts, as evident in the Himalayas.
+Divergent margins (rift zones): Manifesting when plates separate, as seen in the recent earthquakes in the East African Rift Valley. These occurrences are not confined to coastal areas.
+Transform faults: Take place when plates slide horizontally past each other, exemplified by the San Andreas Fault in California. These events can transpire both inland and near coasts.
+The distinction between coastal and inland seismic activity lies in the misconception that all coastal regions are earthquake-prone due to subduction zones. Conversely, significant earthquakes can transpire far inland along other plate boundaries, contingent upon the specific location and prevailing tectonic activity.
+
+In the context of Africa, the continent straddles multiple tectonic plates, including the relatively stable African Plate. However, seismic events do transpire, particularly along the Great Rift Valley and the Red Sea Rift. The perception of fewer earthquakes in Africa may be influenced by factors such as population density and media coverage. Densely populated coastal areas may experience and report earthquakes more frequently, while global news may prioritize covering seismic events impacting larger populations or causing substantial damage.
+
+
+### **5.0 Correlation Analysis**
+
+
+```{r, echo=FALSE}
+  #checking correlation-magnitude vs depth
+  
+   suppressMessages({
+    pl <- ggplot(df, aes(x = Depth, y = Magnitude)) +
+      geom_point(aes(color = Magnitude)) +  # Assign Magnitude to color aesthetic
+      scale_color_viridis_c() +  # viridis color palette
+      geom_smooth(method = "lm",  formula = y ~ x, se = FALSE) +
+      ggtitle("Magnitude by Depth")
+    
+    pl
+  })
+```
+
+The plot displays values being scattered around with no apparent pattern.
+Given the scantity of the data, the horizontal straight line and a correlation coefficient of 0.023, we conclude that there is a weak linear relationship between magnitude and depth.
+
+Therefore, an increase in magnitude of earthquake causes a slightly significant increase to the depth. 
+The low correlation suggests that the depth provides very little information about its magnitude and is not a strong predictor of earthquake magnitude.
+
+
+### **6.0 The Shiny App**
+
+The shiny application is as displayed below.A more detailed and interactive analysis can be found in the embedded shiny app below. Users can filter the data and visualizations using the slider for year and Magnitude on the left side navigation panel.
+
+
+
+
+```{r , echo=FALSE}
+
+shinyApp(
+
+  # UI definition
+ui <- fluidPage(
+
+  titlePanel("Earthquake Analysis 1965-2016"),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput("yearRange", "Select Year Range:", 
+                  min = min(df$Year), 
+                  max = max(df$Year), 
+                  value = c(min(df$Year), max(df$Year)),
+                  step = 1),
+      sliderInput("magnitude_range", "Magnitude Range",
+                  min(df$Magnitude), 
+                  max(df$Magnitude), 
+                  value = c(min(df$Magnitude), max(df$Magnitude)),
+                  step = 0.1)
+    ),
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Yearly Earthquake Frequency",
+                 plotlyOutput("number_of_earthquakes")),
+        
+        tabPanel("Average Magnitude Trend",
+                 plotlyOutput("magnitude_over_time")),
+        
+        tabPanel("Annual earthquake occurrence by magnitude",
+                 plotOutput("barstack")),
+        
+        tabPanel("Magnitude Distribution",
+                 plotOutput("magnitude_distribution")),
+        
+        tabPanel("Depth Distribution",
+                 plotOutput("depth_distribution")),
+        
+        tabPanel("Continental Burden of Earthquake Magnitudes",
+                 plotOutput("bubblechart")),
+        
+        tabPanel("Detailed Continental Burden of Earthquake Magnitudes",
+                 leafletOutput("map")),
+        
+        tabPanel("Correlation Analysis",
+                 plotOutput("magnitude_vs_depth")), 
+        
+        tabPanel("The Raw Dataset",
+                 DTOutput("mydatatable"))
+      )
+    )
+  )
+),
+
+# Server logic
+server <- function(input, output){
+  
+  # Reactive function for filtered data
+  filtered_df <- reactive({
+    filter(df, 
+           Magnitude >= input$magnitude_range[1] & 
+             Magnitude <= input$magnitude_range[2] & 
+             Year >= input$yearRange[1] & 
+             Year <= input$yearRange[2])
+  })
+  
+  #number of eathquakes(yearly)
+  output$number_of_earthquakes <- renderPlotly({
+    yearly_counts <- filtered_df() %>%
+      count(Year)
+    
+    pl <- ggplot(yearly_counts, aes(x = Year, y = n)) +
+      geom_line(color = "#00008B") +
+      scale_x_continuous(breaks = yearly_counts$Year) +
+      ggtitle("Number of Earthquakes by Year") +
+      theme(plot.margin = margin(20, 20, 20, 20),
+            axis.text.x = element_text(angle = 90, hjust = 1),
+            panel.grid.major = element_line(color = "white", size = 0.5),
+            panel.grid.minor = element_line(color = "white", size = 0.25)) +
+      labs(x = "Year", y = "Number of Earthquakes")
+    
+    ggplotly(pl)
+  })
+  
+  #magnitude trend
+  
+  output$magnitude_over_time <- renderPlotly({
+    ts_data <- xts(filtered_df()$Magnitude, order.by = filtered_df()$Date)
+    annual_ts <- apply.yearly(ts_data, mean)
+    
+    pl <- ggplot(annual_ts, aes(x = as.POSIXct(Index), y = annual_ts)) +
+      geom_line(color = "#00008B") +
+      scale_x_datetime(date_breaks = "1 year", date_labels = "%Y") +
+      ggtitle("Earthquake Magnitude over Time") +
+      theme(plot.margin = margin(20, 20, 20, 20),
+            axis.text.x = element_text(angle = 90),
+            panel.grid.major = element_line(color = "white", size = 0.5),
+            panel.grid.minor = element_line(color = "white", size = 0.25)) +
+      labs(x = "Year", y = "Magnitude")
+    
+    ggplotly(pl)
+  })
+  
+  # stacked barchart (magnitude)
+  
+  output$barstack <- renderPlot({
+    # Count by year and magnitude range
+    yearly_magnitude_counts <- filtered_df() %>%
+      group_by(Year, MagnitudeRange) %>%
+      summarise(Count = n())
+    
+    # Plot stacked bar chart
+    pl <- ggplot(yearly_magnitude_counts, aes(x = Year, y = Count, fill = MagnitudeRange)) +
+      geom_bar(stat = "identity") +
+      labs(title = "Magnitude Range by Year ", x = "Year", y = "Number") 
+    pl + scale_fill_viridis_d()
+  })
+
+  
+  #distribution of the magnitude
+  output$magnitude_distribution <- renderPlot({
+    pl <- ggplot(filtered_df(), aes(x = Magnitude)) +
+      geom_histogram(color="black", aes(fill = ..count..), bins = 40) +
+      ggtitle("Magnitude Distribution Patterns")
+    pl
+  })
+  #distribution of the earthquake depth
+  output$depth_distribution <- renderPlot({
+    pl <- ggplot(filtered_df(), aes(x = Depth)) +
+      geom_histogram(color="black",  aes(fill = ..count..), bins = 40) +
+      ggtitle("Depth Distribution Patterns")
+    pl
+  })
+  
+  #bubble chart
+  
+  output$bubblechart <- renderPlot({
+    
+    # Create a world map
+    world_map <- map_data("world")
+    
+    # Map Visualization with Earthquake Locations
+    
+    pl <- ggplot() +
+      geom_polygon(data = world_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+      geom_point(data = filtered_df(), aes(x = Longitude, y = Latitude, color = Magnitude, size = Magnitude), alpha = 0.5) +
+      scale_color_gradient(low = "blue", high = "red")+
+      labs(title = "Earthquake Magnitude by Location", x = "Longitude", y = "Latitude") +
+      theme_minimal()
+    
+    pl
+    
+  })
+  
+  #the map
+  
+  output$map <- renderLeaflet({
+    pal <- colorNumeric("viridis", domain = filtered_df()$Magnitude)
+    
+    leaflet(filtered_df()) %>%
+      addTiles() %>%
+      addCircleMarkers(lng = ~Longitude, lat = ~Latitude,
+                       radius = 3, stroke = FALSE, fillOpacity = 0.5,
+                       color = ~pal(Magnitude),
+                       label = ~paste("Magnitude:", Magnitude)) %>%
+      addControl(paste(title = "Global Earthquake Map"), position = "topright") %>% 
+      leaflet::addLegend(pal = pal, values = filtered_df()$Magnitude, title = "Magnitude", position = "bottomright") %>%
+      setView(lng = 17, lat = 0, zoom = 1)
+  })
+  
+  #checking correlation-magnitude vs depth
+  
+  output$magnitude_vs_depth <- renderPlot({
+    pl <- ggplot(filtered_df(), aes(x = Depth, y = Magnitude)) +
+      geom_point(aes(color = Magnitude)) +  # Assign Magnitude to color aesthetic
+      scale_color_viridis_c() +  # viridis color palette
+      geom_smooth(method = "lm", se = FALSE) +
+      ggtitle("Magnitude by Depth")
+    
+    pl
+  })
+  
+  # The data table
+  output$mydatatable <- renderDT({
+    datatable(filtered_df(), options = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
+  })
+},
+
+  options = list(width=1050,height=625)
+)
+```
+### **7.0 Conclusion**
+
+From the data, time series analysis indicated fluctuations in seismic activity showcasing periods of relative seismic calm with clusters of heightened activity. The distribution of the earthquake magnitude in the years seemed to be more concentrated in the magnitude range of 5.5. 
+The geographical distribution of earthquakes was predominant in the coastal areas which may correspond with tectonic plate boundaries with significant geological activity. Insights gained from the correlation analysis revealed the depth of an earthquake doesn’t determine its strength or magnitude.
+Overall, the analysis of significant earthquakes from 1965 to 2016 utilizing various data visualization techniques provides valuable insights into temporal and spatial patterns, helping to enhance our understanding of seismic activity and inform strategies to mitigate risks. 
+
+#### **Challenges**
+
+* **Unpredictable Nature of Earthquakes:** Earthquakes are inherently unpredictable, striking with little warning, making forecasting a significant challenge.
+* **Data Limitations:** The absence of real-time data on pre-earthquake tectonic plate movements in the dataset significantly hinders our ability to anticipate earthquakes.
+* **Incomplete Observations:** The data lacks crucial variables such as the destruction statistics in terms of people and property necessary for comprehensive analysis, potentially affecting the validity of our findings.
+* **Missing Data Points:** The presence of missing values (null values) within the dataset limits the scope of our analysis and the strength of our conclusions.
+
+#### **8.0 Recommendations**
+
+1. Leverage advanced technologies like machine learning and AI to analyze real-time earthquake data and create predictive models.
+2. Collaborate with experts across various fields to guarantee comprehensive data collection during the initial stages.
+
+
+
+
