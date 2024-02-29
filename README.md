@@ -78,6 +78,17 @@ Overall, the analysis of significant earthquakes from 1965 to 2016 utilizing var
 1. Leverage advanced technologies like machine learning and AI to analyze real-time earthquake data and create predictive models.
 2. Collaborate with experts across various fields to guarantee comprehensive data collection during the initial stages.
 
+#### **For More Information**
+See full analysis in <a href ="app.R">shiny App</a> or the Markdown report <a href ="earthquake_analysis_report.Rmd of Telco Churn Rate.pdf">here</a>
+
+
+# Repository Structure
+
+├── data<br>
+├── graphs<br>
+├── README.md<br>
+├── earthquake_analysis_report.Rmd<br>
+└── app.R
 
 
 
