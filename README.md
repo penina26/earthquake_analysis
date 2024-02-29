@@ -37,6 +37,7 @@ While the number of earthquakes increased over the years with different magnitud
 
 Certain years or periods may exhibit spikes in earthquake activity across multiple magnitude ranges, indicating periods of intense seismic activity.Long-term cycles in earthquake activity may become apparent, highlighting periods of increased or decreased seismicity over longer time scales.
 
+
 ![Kaggle](graphs/continental burden.PNG)
 
 ### **Spatial Analysis** 
